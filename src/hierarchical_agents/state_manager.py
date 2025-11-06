@@ -6,6 +6,7 @@ for caching and ensuring data consistency across concurrent operations.
 """
 
 import json
+import logging
 import time
 import asyncio
 from datetime import datetime, timedelta
@@ -67,23 +68,34 @@ class StateManager:
         self.config = config or StateManagerConfig()
         self._redis: Optional[redis.Redis] = None
         self._lock_timeout = 10  # seconds
+        self.logger = logging.getLogger(f"{self.__class__.__name__}")
         
     async def initialize(self) -> None:
-        """Initialize Redis connection."""
-        self._redis = redis.from_url(
-            self.config.redis_url,
-            db=self.config.redis_db,
-            decode_responses=True,
-            retry_on_timeout=True,
-            socket_keepalive=True,
-            socket_keepalive_options={}
-        )
-        
-        # Test connection
+        """Initialize Redis connection with fallback to in-memory storage."""
         try:
+            self._redis = redis.from_url(
+                self.config.redis_url,
+                db=self.config.redis_db,
+                decode_responses=True,
+                retry_on_timeout=True,
+                socket_keepalive=True,
+                socket_keepalive_options={}
+            )
+            
+            # Test connection
             await self._redis.ping()
+            self.logger.info("Successfully connected to Redis")
+            
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to Redis: {e}")
+            self.logger.warning(f"Failed to connect to Redis: {e}. Using in-memory storage as fallback.")
+            self._redis = None
+            # Initialize in-memory storage
+            self._memory_store = {
+                'executions': {},
+                'teams': {},
+                'agents': {},
+                'events': {}
+            }
     
     async def close(self) -> None:
         """Close Redis connection."""
@@ -340,13 +352,20 @@ class StateManager:
     
     async def get_execution_state(self, execution_id: str) -> Optional[ExecutionState]:
         """Get complete execution state."""
-        if not self._redis:
-            raise RuntimeError("StateManager not initialized")
-        
         start_time = time.time()
         
-        key = self._get_key("execution", execution_id)
-        data = await self._redis.get(key)
+        if self._redis:
+            # Use Redis
+            key = self._get_key("execution", execution_id)
+            data = await self._redis.get(key)
+        else:
+            # Use in-memory storage
+            if not hasattr(self, '_memory_store'):
+                return None
+            data = self._memory_store['executions'].get(execution_id)
+            if data and isinstance(data, dict):
+                import json
+                data = json.dumps(data)
         
         query_time = (time.time() - start_time) * 1000  # Convert to milliseconds
         
@@ -354,10 +373,14 @@ class StateManager:
             return None
         
         try:
-            state_dict = json.loads(data)
+            if isinstance(data, str):
+                state_dict = json.loads(data)
+            else:
+                state_dict = data
             return ExecutionState.model_validate(state_dict)
         except Exception as e:
-            raise ValueError(f"Failed to deserialize execution state: {e}")
+            self.logger.error(f"Failed to deserialize execution state: {e}")
+            return None
     
     async def get_execution_status(self, execution_id: str) -> Optional[ExecutionStatus]:
         """Get execution status quickly."""
@@ -428,24 +451,47 @@ class StateManager:
         limit: int = 100
     ) -> List[str]:
         """List execution IDs with optional filtering."""
-        if not self._redis:
-            raise RuntimeError("StateManager not initialized")
-        
-        pattern = self._get_key("execution", "*")
-        keys = await self._redis.keys(pattern)
-        
-        execution_ids = []
-        for key in keys[:limit]:  # Limit to prevent memory issues
-            execution_id = key.split(":")[-1]
-            
-            # Apply filters if specified
-            if team_id or status:
-                state = await self.get_execution_state(execution_id)
-                if not state:
-                    continue
+        if self._redis:
+            # Use Redis
+            pattern = self._get_key("execution", "*")
+            keys = await self._redis.keys(pattern)
+            execution_ids = []
+            for key in keys[:limit]:  # Limit to prevent memory issues
+                execution_id = key.split(":")[-1]
                 
-                if team_id and state.team_id != team_id:
-                    continue
+                # Apply filters if specified
+                if team_id or status:
+                    state = await self.get_execution_state(execution_id)
+                    if not state:
+                        continue
+                    
+                    if team_id and state.team_id != team_id:
+                        continue
+                    
+                    if status and state.status != status:
+                        continue
+                
+                execution_ids.append(execution_id)
+        else:
+            # Use in-memory storage
+            if not hasattr(self, '_memory_store'):
+                return []
+            
+            execution_ids = []
+            for execution_id in list(self._memory_store['executions'].keys())[:limit]:
+                # Apply filters if specified
+                if team_id or status:
+                    state = await self.get_execution_state(execution_id)
+                    if not state:
+                        continue
+                    
+                    if team_id and state.team_id != team_id:
+                        continue
+                    
+                    if status and state.status != status:
+                        continue
+                
+                execution_ids.append(execution_id)
                 
                 if status and state.status != status:
                     continue
