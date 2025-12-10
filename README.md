@@ -1,110 +1,293 @@
-# Hierarchical Multi-Agent System
+# 动态层级多智能体系统 (Dynamic Hierarchical Multi-Agent System)
 
-A Python framework for building and executing hierarchical teams of AI agents with supervisor-worker architecture and dependency management.
+基于 Strands Agent SDK 构建的动态层级团队协作系统，支持配置驱动的多智能体拓扑结构。
 
-## Features
+## 核心特性
 
-- **Hierarchical Architecture**: Top-level supervisor → Team supervisors → Worker agents
-- **Streaming Execution**: Real-time status updates and result streaming
-- **Standardized Output**: Unified result format and error handling
-- **Extensible Design**: Plugin-based agent and tool management
-- **Multi-LLM Support**: OpenAI, OpenRouter, AWS Bedrock integration
-- **Secure Key Management**: Encrypted API key storage and management
+- ✅ **动态层级架构**：Global Supervisor → Team Supervisor → Worker Agent
+- ✅ **配置驱动**：通过配置文件动态构建团队拓扑
+- ✅ **执行模式控制**：支持顺序执行和并行执行两种模式
+- ✅ **执行控制**：代码级别的防重复调用机制
+- ✅ **调用追踪**：完整的调用历史和统计信息
+- ✅ **流式输出**：实时显示所有层级的工作过程
+- ✅ **上下文流动**：自动的层级间上下文传递
+- ✅ **跨团队上下文共享**：可配置的团队间上下文传递机制
 
-## Quick Start
+## 系统架构
 
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/hierarchical-agents/hierarchical-agents.git
-cd hierarchical-agents
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Copy environment configuration
-cp .env.example .env
-# Edit .env with your API keys and configuration
+```
+┌─────────────────────────────────────────────────────────┐
+│ Global Supervisor (首席科学家)                           │
+│ - 协调所有团队                                           │
+│ - 整合研究成果                                           │
+└─────────────────────────────────────────────────────────┘
+                    ↓ 并发调用
+┌──────────────────┬──────────────────┬──────────────────┐
+│ Team Supervisor  │ Team Supervisor  │ Team Supervisor  │
+│ (理论物理学团队)  │ (实验物理学团队)  │ (专家评审团队)    │
+└──────────────────┴──────────────────┴──────────────────┘
+        ↓                  ↓                  ↓
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ Worker Agent │  │ Worker Agent │  │ Worker Agent │
+│ (量子理论专家)│  │ (实验设计师)  │  │ (方法论专家)  │
+└──────────────┘  └──────────────┘  └──────────────┘
 ```
 
-### Basic Usage
+## 快速开始
+
+### 安装依赖
+
+```bash
+pip install strands strands-tools
+```
+
+### 配置 AWS Bedrock API Key
+
+有三种方式配置 API Key：
+
+**方式 1: 使用 .env 文件（推荐）**
+
+```bash
+# 复制示例文件
+cp .env.example .env
+
+# 编辑 .env 文件，填入你的 API Key
+# AWS_BEDROCK_API_KEY=your-api-key-here
+```
+
+**方式 2: 使用环境变量**
+
+```bash
+export AWS_BEDROCK_API_KEY='your-api-key'
+```
+
+**方式 3: 在代码中设置**
 
 ```python
-from hierarchical_agents import HierarchicalManager, HierarchicalTeam
+from config import setup_config
 
-# Create a hierarchical team configuration
-team_config = {
-    "team_name": "research_team",
-    "description": "Research and analysis team",
-    # ... (see examples for full configuration)
-}
-
-# Build and execute the team
-manager = HierarchicalManager()
-team = manager.build_hierarchy(team_config)
-results = await manager.execute_team(team)
+setup_config(api_key='your-api-key')
 ```
 
-## Development
-
-### Setup Development Environment
+### 运行示例
 
 ```bash
-# Install development dependencies
-pip install -e ".[dev]"
+# 运行完整测试
+python test/test_quantum_research_full.py
 
-# Install pre-commit hooks
-pre-commit install
-
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=src/hierarchical_agents --cov-report=html
+# 或使用快速入口
+python test/test_quantum_research.py
 ```
 
-### Code Quality
+## 核心组件
 
-```bash
-# Format code
-black src/ tests/
-isort src/ tests/
+### 1. ExecutionTracker（执行追踪器）
 
-# Type checking
-mypy src/
+跟踪所有已执行的 Team 和 Worker，防止重复调用：
 
-# Linting
-flake8 src/ tests/
+```python
+tracker = ExecutionTracker()
+tracker.mark_team_executed("理论物理学团队", result)
+tracker.is_team_executed("理论物理学团队")  # True
 ```
 
-## Architecture
+### 2. WorkerAgentFactory（Worker 工厂）
 
-The system follows a three-tier hierarchical architecture:
+动态创建 Worker Agent：
 
-1. **Top-level Supervisor**: Coordinates overall execution and team selection
-2. **Team Supervisors**: Manage individual teams and agent routing
-3. **Worker Agents**: Execute specific tasks with tool integration
+```python
+worker_config = WorkerConfig(
+    name="量子理论专家",
+    role="量子力学理论研究",
+    system_prompt="你是量子理论专家...",
+    tools=[calculator]
+)
+worker = WorkerAgentFactory.create_worker(worker_config)
+```
 
-## Configuration
+### 3. TeamSupervisorFactory（Team 工厂）
 
-See `.env.example` for configuration options and `examples/` directory for sample team configurations.
+动态创建 Team Supervisor：
 
-## License
+```python
+team_config = TeamConfig(
+    name="理论物理学团队",
+    supervisor_prompt="你是理论物理学团队的负责人...",
+    workers=[worker_config1, worker_config2]
+)
+supervisor = TeamSupervisorFactory.create_supervisor(team_config, tracker)
+```
 
-MIT License - see [LICENSE](LICENSE) file for details.
+### 4. HierarchyBuilder（层级构建器）
 
-## Contributing
+流式 API 构建完整系统：
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run the test suite
-6. Submit a pull request
+```python
+agent, tracker, team_names = (
+    HierarchyBuilder()
+    .set_global_prompt("你是首席科学家...")
+    .set_parallel_execution(False)  # 设置执行模式：False=顺序，True=并行
+    .add_team(
+        name="理论物理学团队",
+        supervisor_prompt="...",
+        workers=[...]
+    )
+    .add_team(
+        name="实验物理学团队",
+        supervisor_prompt="...",
+        workers=[...]
+    )
+    .build()
+)
+```
 
-## Support
+## 执行模式
 
-- Documentation: [Read the Docs](https://hierarchical-agents.readthedocs.io)
-- Issues: [GitHub Issues](https://github.com/hierarchical-agents/hierarchical-agents/issues)
-- Discussions: [GitHub Discussions](https://github.com/hierarchical-agents/hierarchical-agents/discussions)
+系统支持两种团队执行模式：
+
+### 顺序执行（默认）
+
+适合有依赖关系的任务，团队按顺序依次执行：
+
+```python
+agent, tracker, teams = (
+    HierarchyBuilder(parallel_execution=False)  # 顺序执行
+    .set_global_prompt("按顺序完成：1.数据收集 2.数据分析 3.报告撰写")
+    .add_team("数据收集团队", ..., workers=[...])
+    .add_team("数据分析团队", ..., workers=[...])
+    .add_team("报告撰写团队", ..., workers=[...])
+    .build()
+)
+```
+
+### 并行执行
+
+适合独立任务，团队可以同时执行，提高效率：
+
+```python
+agent, tracker, teams = (
+    HierarchyBuilder(parallel_execution=True)  # 并行执行
+    .set_global_prompt("以下团队可以同时工作：前端、后端、测试")
+    .add_team("前端开发团队", ..., workers=[...])
+    .add_team("后端开发团队", ..., workers=[...])
+    .add_team("测试团队", ..., workers=[...])
+    .build()
+)
+```
+
+详细说明请参考：[执行模式文档](docs/EXECUTION_MODES.md)
+
+## 防重复机制
+
+系统提供三层防重复保护：
+
+### 1. Worker 层面
+- 基于任务内容的哈希值检测
+- 相同 Worker 处理相同任务时返回简短提示，避免上下文重复
+
+### 2. Team 层面
+- 基于团队名称的执行状态检测
+- 防止同一团队被重复调用
+
+### 3. 执行状态反馈
+- 每次决策时显示执行状态（✅已执行 / ⭕未执行）
+- Supervisor 可以看到哪些 Agent 已执行
+
+## 跨团队上下文共享
+
+系统支持可配置的跨团队上下文共享机制。
+
+### 默认行为
+
+**默认情况下，team 之间不共享上下文**，每个团队独立工作。
+
+### 启用上下文共享
+
+如果需要团队间共享上下文，需要显式配置：
+
+```python
+agent, tracker, team_names = (
+    HierarchyBuilder(enable_context_sharing=True)  # 1. 启用全局上下文共享开关
+    .set_global_prompt("...")
+    .add_team(
+        name="理论物理学团队",
+        supervisor_prompt="...",
+        workers=[...],
+        share_context=False  # 此团队不接收其他团队的上下文（默认）
+    )
+    .add_team(
+        name="实验物理学团队",
+        supervisor_prompt="...",
+        workers=[...],
+        share_context=True  # 2. 此团队接收已执行团队的上下文
+    )
+    .build()
+)
+```
+
+**两个条件都需要满足**：
+1. 全局开关 `enable_context_sharing=True`
+2. 团队配置 `share_context=True`
+
+### 工作机制
+
+1. **全局开关**：`enable_context_sharing=True` 启用上下文共享功能
+2. **团队级配置**：每个团队通过 `share_context` 参数控制是否接收其他团队的上下文
+3. **自动传递**：当 Team 被调用时，如果 `share_context=True`，系统会自动将已执行团队的结果附加到任务描述中
+4. **顺序依赖**：后执行的团队可以看到先执行团队的结果
+
+### 使用场景
+
+- **理论 → 实验**：实验团队基于理论团队的分析设计实验
+- **研究 → 评审**：评审团队基于所有研究团队的成果进行评估
+- **数据 → 分析**：分析团队基于数据采集团队的结果进行分析
+
+## 示例场景：量子力学研究
+
+系统预配置了量子力学研究场景，包含三个专业团队：
+
+1. **理论物理学团队**
+   - 量子理论专家
+   - 数学物理学家
+
+2. **实验物理学团队**
+   - 实验设计师
+   - 数据分析师
+
+3. **专家评审团队**
+   - 方法论专家
+   - 同行评审专家
+
+## 调用统计
+
+系统自动记录和统计所有调用：
+
+```
+总调用次数: 3
+完成调用数: 3
+各团队调用次数:
+  📊 理论物理学团队: 1 次
+  📊 实验物理学团队: 1 次
+  📊 专家评审团队: 1 次
+```
+
+## 技术栈
+
+- **Strands Agent SDK**：Agent 框架
+- **AWS Bedrock**：LLM 服务（Claude Sonnet 4）
+- **Python 3.12+**：开发语言
+
+## 项目文件
+
+- `hierarchy_system.py` - 核心系统实现
+- `test_quantum_research.py` - 量子研究测试脚本
+- `test_simple_quantum.py` - 简单测试脚本
+- `README.md` - 项目文档
+
+## 许可证
+
+MIT License
+
+## 作者
+
+Built with ❤️ using Strands Agent SDK
