@@ -50,7 +50,7 @@ Resources:
     Properties:
       FunctionName: hierarchical-agents-api
       CodeUri: .
-      Handler: lambda_handler.lambda_handler
+      Handler: src.lambda.handler.lambda_handler
       Description: Execute hierarchical multi-agent systems
       Environment:
         Variables:
@@ -86,7 +86,7 @@ Resources:
     Properties:
       FunctionName: hierarchical-agents-health
       CodeUri: .
-      Handler: lambda_handler.health_check_handler
+      Handler: src.lambda.handler.health_check_handler
       Description: Health check endpoint
       Timeout: 30
       MemorySize: 256

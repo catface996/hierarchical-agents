@@ -110,3 +110,6 @@ dmypy.json
 
 # Implementation notes (temporary)
 .implementation_notes.md
+
+# IDE/Editor
+.kiro/

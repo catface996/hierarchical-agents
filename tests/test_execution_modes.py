@@ -8,8 +8,8 @@ import sys
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import setup_config
-from hierarchy_system import HierarchyBuilder
+from src.core.config import setup_config
+from src.core.hierarchy_system import HierarchyBuilder
 from strands_tools import calculator
 
 # 设置配置

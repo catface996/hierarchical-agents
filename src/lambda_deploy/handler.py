@@ -9,11 +9,11 @@ import traceback
 from typing import Dict, Any
 
 # 导入配置管理
-from config import setup_config
+from ..core.config import setup_config
 
 # 导入执行器
-from hierarchy_executor import execute_hierarchy
-from api_models import ErrorResponse
+from ..core.hierarchy_executor import execute_hierarchy
+from ..core.api_models import ErrorResponse
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 
 from strands import Agent, tool
 from strands_tools import calculator, http_request
-from output_formatter import (
+from .output_formatter import (
     print_worker_start, print_worker_thinking, print_worker_complete,
     print_worker_warning, print_worker_error,
     print_team_start, print_team_thinking, print_team_complete,

@@ -8,13 +8,13 @@ from typing import List, Dict, Any, Optional
 from io import StringIO
 import sys
 
-from hierarchy_system import (
-    HierarchyBuilder, 
+from .hierarchy_system import (
+    HierarchyBuilder,
     GlobalSupervisorFactory,
     ExecutionTracker,
     CallTracker
 )
-from api_models import (
+from .api_models import (
     HierarchyConfigRequest,
     TopologyInfo,
     StreamEvent,

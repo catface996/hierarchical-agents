@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # 导入配置管理模块
-from config import setup_config
+from src.core.config import setup_config
 
 # 设置配置（自动从环境变量或 .env 文件加载）
 setup_config()

@@ -11,7 +11,7 @@ import sys
 # 添加父目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import setup_config, get_config, Config
+from src.core.config import setup_config, get_config, Config
 
 
 def test_api_key_authentication():
