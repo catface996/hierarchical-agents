@@ -647,46 +647,59 @@ Your ONLY job is to delegate tasks to your team members (workers).
 {worker_list}
 
 ================================================================================
-MANDATORY OUTPUT FORMAT - YOU MUST PRINT THESE EXACT LINES
+MANDATORY OUTPUT FORMAT - STRICTLY REQUIRED BEFORE EVERY WORKER CALL
 ================================================================================
 
-**BEFORE EACH WORKER CALL, YOU MUST OUTPUT THESE 2 LINES (EXACTLY AS SHOWN):**
+⚠️ CRITICAL: You MUST print THINKING and SELECT lines BEFORE EVERY worker call!
+⚠️ This applies to the FIRST worker, SECOND worker, and ALL subsequent workers!
+⚠️ NEVER call a worker tool without first printing THINKING and SELECT!
 
-[Team: {team_name} | Supervisor] THINKING: <your analysis of which worker to call next and why>
-[Team: {team_name} | Supervisor] SELECT: <worker name>
+**FORMAT (print these EXACT lines before EACH worker call):**
 
-Example for first worker:
-[Team: {team_name} | Supervisor] THINKING: I need to call all {num_workers} workers. Starting with the first expert to analyze the theoretical aspects.
-[Team: {team_name} | Supervisor] SELECT: 量子力学专家
+[Team: {team_name} | Supervisor] THINKING: <why you are calling this specific worker>
+[Team: {team_name} | Supervisor] SELECT: <exact worker name>
 
-Example for second worker:
-[Team: {team_name} | Supervisor] THINKING: First worker completed. Now calling the second expert for mathematical perspective.
-[Team: {team_name} | Supervisor] SELECT: 数学物理专家
-
-**AFTER ALL WORKERS COMPLETE, OUTPUT:**
-[Team: {team_name} | Supervisor] SUMMARY: <integrated summary of all worker contributions>
+**AFTER ALL WORKERS COMPLETE:**
+[Team: {team_name} | Supervisor] SUMMARY: <integrated summary>
 
 ================================================================================
-MANDATORY ITERATIVE WORKFLOW - YOU MUST ITERATE {num_workers} TIMES
+STEP-BY-STEP WORKFLOW - FOLLOW THIS EXACT SEQUENCE {num_workers} TIMES
 ================================================================================
 
-**ITERATION 1:**
-  Output: [Team: {team_name} | Supervisor] THINKING: ...
-  Output: [Team: {team_name} | Supervisor] SELECT: [First Worker Name]
-  Subtask: [specific task for first worker]
-  [Call first worker tool...]
+🔄 **FOR EACH WORKER (repeat {num_workers} times):**
 
-**ITERATION 2:**
-  Output: [Team: {team_name} | Supervisor] THINKING: ...
-  Output: [Team: {team_name} | Supervisor] SELECT: [Second Worker Name]
-  Subtask: [specific task for second worker]
-  [Call second worker tool...]
+   STEP 1: Print your thinking
+           [Team: {team_name} | Supervisor] THINKING: ...
 
-**... continue until all {num_workers} workers are called ...**
+   STEP 2: Print your selection
+           [Team: {team_name} | Supervisor] SELECT: <worker name>
 
-**FINAL:**
-  Output: [Team: {team_name} | Supervisor] SUMMARY: ...
-  [Return integrated result]
+   STEP 3: Call the worker tool
+
+   STEP 4: Wait for worker to complete
+
+   STEP 5: ⚠️ BEFORE calling next worker, GO BACK TO STEP 1!
+
+================================================================================
+CONCRETE EXAMPLE FOR {num_workers} WORKERS
+================================================================================
+
+**Worker 1:**
+[Team: {team_name} | Supervisor] THINKING: Starting task delegation. I will call all {num_workers} workers. First, I need the first expert's perspective.
+[Team: {team_name} | Supervisor] SELECT: [First Worker Name]
+→ [Call first worker tool with subtask]
+→ [Worker completes]
+
+**Worker 2:**
+[Team: {team_name} | Supervisor] THINKING: First worker has completed. Now I need the second expert's analysis.
+[Team: {team_name} | Supervisor] SELECT: [Second Worker Name]
+→ [Call second worker tool with subtask]
+→ [Worker completes]
+
+**... repeat for all remaining workers ...**
+
+**Final Summary:**
+[Team: {team_name} | Supervisor] SUMMARY: [Integrate all results]
 
 ================================================================================
 EXECUTION STATUS
@@ -701,8 +714,12 @@ FAILURE CONDITIONS - YOU WILL FAIL IF:
 - You call the same worker twice
 - You answer directly without calling any worker
 - You skip any worker marked ⭕
+- ❌ You call a worker WITHOUT printing THINKING and SELECT first
+- ❌ You call multiple workers in a row without THINKING/SELECT between them
 
-**SUCCESS requires calling ALL {num_workers} workers: {worker_list}**
+**SUCCESS requires:**
+1. Print THINKING → Print SELECT → Call Worker (repeat {num_workers} times)
+2. Call ALL {num_workers} workers: {worker_list}
 """)
         
         return "\n".join(enhanced_task_parts)
