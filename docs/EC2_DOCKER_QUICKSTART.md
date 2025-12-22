@@ -6,7 +6,7 @@
 
 - EC2 实例 (Amazon Linux 2023 / Ubuntu)
 - Docker 和 Docker Compose
-- AWS 认证配置 (API Key 或 IAM Role)
+- **IAM Role** 附加到 EC2 实例 (推荐) 或 AWS 凭证
 
 ---
 
@@ -17,7 +17,7 @@
 **Amazon Linux 2023:**
 ```bash
 sudo yum update -y
-sudo yum install -y docker git
+sudo yum install -y docker git python3 python3-pip
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -a -G docker ec2-user
@@ -26,6 +26,9 @@ sudo usermod -a -G docker ec2-user
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 
+# 安装 AWS CLI (如果需要)
+sudo yum install -y awscli
+
 # 重新登录以应用 docker 组
 exit
 ```
@@ -33,14 +36,14 @@ exit
 **Ubuntu:**
 ```bash
 sudo apt-get update
-sudo apt-get install -y docker.io docker-compose git python3 python3-pip
+sudo apt-get install -y docker.io docker-compose git python3 python3-pip awscli
 sudo systemctl start docker
 sudo systemctl enable docker
 sudo usermod -a -G docker ubuntu
 exit
 ```
 
-### 1.2 配置 IAM 角色 (推荐)
+### 1.2 配置 IAM 角色 (必须)
 
 为 EC2 实例附加 IAM 角色，包含以下权限：
 
@@ -55,14 +58,41 @@ exit
         "bedrock:InvokeModelWithResponseStream"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:ModifyInstanceMetadataOptions",
+        "ec2:DescribeInstances"
+      ],
+      "Resource": "*"
     }
   ]
 }
 ```
 
+### 1.3 配置 IMDSv2 (关键步骤)
+
+Docker 容器默认无法访问 EC2 实例元数据服务 (IMDS)。需要增加 hop limit：
+
+```bash
+# 获取实例 ID
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+
+# 或使用 IMDSv2
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+
+# 增加 hop limit 到 2 (允许 Docker 容器访问 IMDS)
+aws ec2 modify-instance-metadata-options \
+    --instance-id $INSTANCE_ID \
+    --http-put-response-hop-limit 2 \
+    --http-endpoint enabled
+```
+
 ---
 
-## 二、部署服务
+## 二、部署服务 (IAM Role 方式 - 推荐)
 
 ### 2.1 克隆代码
 
@@ -71,36 +101,53 @@ git clone https://github.com/catface996/hierarchical-agents.git
 cd hierarchical-agents
 ```
 
-### 2.2 配置环境变量
+### 2.2 一键配置 (推荐)
 
-**方式 A: 使用 IAM Role (推荐用于 EC2)**
+运行自动配置脚本：
 
 ```bash
-cat > .env << 'EOF'
-# 数据库配置
-DB_TYPE=mysql
-DB_HOST=mysql
-DB_PORT=3306
-DB_NAME=hierarchical_agents
-DB_USER=root
-DB_PASSWORD=hierarchical123
-
-# AWS 配置 - IAM Role 认证
-USE_IAM_ROLE=true
-AWS_REGION=us-east-1
-AWS_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
-
-# 服务器配置
-PORT=8080
-DEBUG=false
-EOF
+chmod +x scripts/setup-ec2-iam.sh
+./scripts/setup-ec2-iam.sh
 ```
 
-**方式 B: 使用 AK/SK 认证**
+脚本会自动：
+- 检查 IAM Role
+- 配置 IMDSv2 hop limit
+- 创建 .env 文件
+
+### 2.3 启动服务
+
+```bash
+# 使用 EC2 专用配置 (host network 模式，支持 IMDS)
+docker-compose -f docker-compose.ec2.yml up -d --build
+
+# 查看服务状态
+docker-compose -f docker-compose.ec2.yml ps
+
+# 查看日志
+docker-compose -f docker-compose.ec2.yml logs -f api
+```
+
+### 2.4 验证服务
+
+```bash
+# 健康检查
+curl http://localhost:8080/health
+
+# 预期输出:
+# {"status":"healthy","timestamp":"...","version":"1.0.0"}
+```
+
+---
+
+## 三、备选部署方式
+
+### 方式 B: 使用 AK/SK 认证
+
+如果不使用 IAM Role，可以使用 AK/SK：
 
 ```bash
 cat > .env << 'EOF'
-# 数据库配置
 DB_TYPE=mysql
 DB_HOST=mysql
 DB_PORT=3306
@@ -108,23 +155,24 @@ DB_NAME=hierarchical_agents
 DB_USER=root
 DB_PASSWORD=hierarchical123
 
-# AWS 配置 - AK/SK 认证
+# AK/SK 认证
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_REGION=us-east-1
 AWS_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 
-# 服务器配置
 PORT=8080
 DEBUG=false
 EOF
+
+# 使用标准 docker-compose (非 host network)
+docker-compose up -d --build
 ```
 
-**方式 C: 使用 API Key 认证**
+### 方式 C: 使用 API Key 认证
 
 ```bash
 cat > .env << 'EOF'
-# 数据库配置
 DB_TYPE=mysql
 DB_HOST=mysql
 DB_PORT=3306
@@ -132,31 +180,16 @@ DB_NAME=hierarchical_agents
 DB_USER=root
 DB_PASSWORD=hierarchical123
 
-# AWS 配置 - API Key 认证
+# API Key 认证
 AWS_BEDROCK_API_KEY=your-api-key
 AWS_REGION=us-east-1
 AWS_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
 
-# 服务器配置
 PORT=8080
 DEBUG=false
 EOF
-```
 
-### 2.3 启动服务
-
-```bash
-# 使用 docker-compose 启动 (本地构建)
 docker-compose up -d --build
-
-# 或使用预构建镜像 (更快)
-docker-compose -f docker-compose.prod.yml up -d
-
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f api
 ```
 
 ### 2.4 验证服务

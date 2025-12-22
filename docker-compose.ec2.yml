@@ -1,0 +1,85 @@
+# =============================================================================
+# EC2 Docker Compose - Optimized for IAM Role Authentication
+#
+# This configuration is designed for EC2 deployment using IAM Role credentials.
+# Key features:
+# - API container uses host network to access EC2 Instance Metadata Service (IMDS)
+# - MySQL uses bridge network with published ports
+# - Automatic IAM credential retrieval from instance metadata
+#
+# Prerequisites:
+# 1. EC2 instance must have an IAM Role attached with Bedrock permissions
+# 2. IMDSv2 hop limit should be >= 2 (for Docker container access)
+#
+# Usage:
+#   docker-compose -f docker-compose.ec2.yml up -d
+#
+# To increase IMDSv2 hop limit (run on EC2 host):
+#   aws ec2 modify-instance-metadata-options \
+#     --instance-id <your-instance-id> \
+#     --http-put-response-hop-limit 2 \
+#     --http-endpoint enabled
+# =============================================================================
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: hierarchical-agents-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-hierarchical123}
+      MYSQL_DATABASE: ${DB_NAME:-hierarchical_agents}
+    ports:
+      - "13306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-hierarchical123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # API Server - Uses host network for IMDS access
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hierarchical-agents-api
+    restart: unless-stopped
+    # Use host network to access EC2 Instance Metadata Service (IMDS)
+    network_mode: host
+    environment:
+      # Database Configuration - Connect to MySQL via localhost (host network)
+      - DB_TYPE=mysql
+      - DB_HOST=127.0.0.1
+      - DB_PORT=13306
+      - DB_NAME=${DB_NAME:-hierarchical_agents}
+      - DB_USER=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD:-hierarchical123}
+
+      # AWS Configuration - IAM Role (credentials from IMDS)
+      - USE_IAM_ROLE=true
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_BEDROCK_MODEL_ID=${AWS_BEDROCK_MODEL_ID:-us.anthropic.claude-sonnet-4-20250514-v1:0}
+
+      # Server Configuration
+      - PORT=8080
+      - HOST=0.0.0.0
+      - DEBUG=${DEBUG:-false}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  mysql_data:
+    driver: local
