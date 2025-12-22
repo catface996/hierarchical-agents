@@ -1,14 +1,151 @@
-# EC2 Docker 快速部署指南
+# EC2 部署指南
 
-本文档介绍如何在 EC2 上使用 Docker Compose 快速部署层级多智能体系统，并使用测试脚本验证。
+本文档介绍如何在 EC2 上部署层级多智能体系统。
+
+## 部署方式对比
+
+| 方式 | 数据库 | 应用 | IAM Role | 推荐场景 |
+|------|--------|------|----------|----------|
+| **原生部署 (推荐)** | Docker | Python 直接运行 | ✅ 完美支持 | 生产环境 |
+| Docker 全容器 | Docker | Docker (host网络) | ⚠️ 需配置 IMDS | 开发测试 |
+
+---
+
+# 方式一：原生部署 (推荐)
+
+数据库用 Docker 运行，应用直接用 Python 运行。这是 IAM Role 认证的最佳方式。
+
+## 前置要求
+
+- EC2 实例 (Amazon Linux 2023 / Ubuntu)
+- **IAM Role** 附加到 EC2 实例 (包含 Bedrock 权限)
+
+## 一、一键部署
+
+```bash
+# 克隆代码
+git clone https://github.com/catface996/hierarchical-agents.git
+cd hierarchical-agents
+
+# 运行安装脚本
+chmod +x scripts/setup-ec2-native.sh
+./scripts/setup-ec2-native.sh
+
+# 重新登录 (如果提示需要)
+exit
+# 重新 SSH 连接后继续
+
+# 启动数据库
+docker-compose -f docker-compose.db-only.yml up -d
+
+# 启动应用
+./scripts/start-app.sh
+
+# 或后台运行
+./scripts/start-app.sh daemon
+```
+
+## 二、手动部署步骤
+
+### 2.1 安装依赖
+
+**Amazon Linux 2023:**
+```bash
+sudo yum update -y
+sudo yum install -y docker git python3 python3-pip
+sudo systemctl start docker && sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+
+# Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# 重新登录
+exit
+```
+
+**Ubuntu:**
+```bash
+sudo apt-get update
+sudo apt-get install -y docker.io docker-compose git python3 python3-pip
+sudo systemctl start docker && sudo systemctl enable docker
+sudo usermod -a -G docker ubuntu
+exit
+```
+
+### 2.2 部署应用
+
+```bash
+# 克隆代码
+git clone https://github.com/catface996/hierarchical-agents.git
+cd hierarchical-agents
+
+# 安装 Python 依赖
+pip3 install --user -r requirements.txt
+
+# 配置环境变量
+cat > .env << 'EOF'
+DB_TYPE=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=hierarchical_agents
+DB_USER=root
+DB_PASSWORD=hierarchical123
+
+USE_IAM_ROLE=true
+AWS_REGION=us-east-1
+AWS_BEDROCK_MODEL_ID=us.anthropic.claude-sonnet-4-20250514-v1:0
+
+PORT=8080
+EOF
+
+# 启动数据库
+docker-compose -f docker-compose.db-only.yml up -d
+
+# 等待数据库就绪
+sleep 10
+
+# 启动应用
+python3 -m src.ec2.server
+```
+
+### 2.3 后台运行 (生产环境)
+
+```bash
+# 使用 gunicorn 后台运行
+./scripts/start-app.sh daemon
+
+# 或手动运行
+nohup gunicorn --bind 0.0.0.0:8080 --workers 4 --threads 2 --timeout 300 src.ec2.server:app > app.log 2>&1 &
+
+# 查看日志
+tail -f app.log
+
+# 停止服务
+kill $(cat /tmp/hierarchical-agents.pid)
+```
+
+### 2.4 验证服务
+
+```bash
+# 健康检查
+curl http://localhost:8080/health
+
+# 运行测试
+python3 test_stream.py "请解释量子纠缠"
+```
+
+---
+
+# 方式二：Docker 全容器部署
+
+如果需要全部容器化，请使用以下方式。
 
 ## 前置要求
 
 - EC2 实例 (Amazon Linux 2023 / Ubuntu)
 - Docker 和 Docker Compose
 - **IAM Role** 附加到 EC2 实例 (推荐) 或 AWS 凭证
-
----
 
 ## 一、准备 EC2 实例
 
