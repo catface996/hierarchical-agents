@@ -286,25 +286,36 @@ sequenceDiagram
 ### 典型调用流程
 
 ```bash
+# Step 0: 获取可用模型列表，选择一个模型 ID
+curl -s -X POST http://localhost:8080/api/v1/models/list \
+  -H "Content-Type: application/json" -d '{}' | jq '.data.items[] | {id, name}'
+
+# 示例输出:
+# { "id": "abc123-...", "name": "Claude Sonnet 4" }
+# { "id": "def456-...", "name": "Claude Opus 4" }
+
+# 设置模型 ID (替换为实际的模型 ID)
+MODEL_ID="your-model-id-here"
+
 # Step 1: 创建层级团队 (仅需一次)
 HIERARCHY_ID=$(curl -s -X POST http://localhost:8080/api/v1/hierarchies/create \
   -H "Content-Type: application/json" \
-  -d '{
-    "name": "研究团队",
-    "global_prompt": "你是研究协调者，负责分析任务并分配给合适的团队",
-    "llm_config": {"temperature": 0.7, "max_tokens": 4096},
-    "teams": [{
-      "name": "分析组",
-      "supervisor_prompt": "你是分析组负责人",
-      "llm_config": {"temperature": 0.6},
-      "workers": [{
-        "name": "分析师",
-        "role": "数据分析专家",
-        "system_prompt": "你是数据分析专家，擅长深度分析问题",
-        "llm_config": {"temperature": 0.5}
+  -d "{
+    \"name\": \"研究团队\",
+    \"global_prompt\": \"你是研究协调者，负责分析任务并分配给合适的团队\",
+    \"llm_config\": {\"model_id\": \"$MODEL_ID\", \"temperature\": 0.7, \"max_tokens\": 4096},
+    \"teams\": [{
+      \"name\": \"分析组\",
+      \"supervisor_prompt\": \"你是分析组负责人\",
+      \"llm_config\": {\"model_id\": \"$MODEL_ID\", \"temperature\": 0.6},
+      \"workers\": [{
+        \"name\": \"分析师\",
+        \"role\": \"数据分析专家\",
+        \"system_prompt\": \"你是数据分析专家，擅长深度分析问题\",
+        \"llm_config\": {\"model_id\": \"$MODEL_ID\", \"temperature\": 0.5}
       }]
     }]
-  }' | jq -r '.data.id')
+  }" | jq -r '.data.id')
 
 echo "Created hierarchy: $HIERARCHY_ID"
 
@@ -316,7 +327,7 @@ RUN_ID=$(curl -s -X POST http://localhost:8080/api/v1/runs/start \
 
 echo "Started run: $RUN_ID"
 
-# Step 3: 流式获取执行过程 (SSE)
+# Step 3: 流式获取执行过程 (SSE) - 需要在启动后立即调用
 curl -N -X POST http://localhost:8080/api/v1/runs/stream \
   -H "Content-Type: application/json" \
   -d "{\"id\": \"$RUN_ID\"}"
@@ -326,6 +337,8 @@ curl -s -X POST http://localhost:8080/api/v1/runs/get \
   -H "Content-Type: application/json" \
   -d "{\"id\": \"$RUN_ID\"}" | jq
 ```
+
+> **注意**: `model_id` 是可选的。如果不指定，系统将使用 AI 模型表中配置的默认参数。但建议明确指定以确保使用正确的模型。
 
 ### SSE 事件类型
 
