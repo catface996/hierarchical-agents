@@ -105,8 +105,11 @@ CREATE TABLE IF NOT EXISTS execution_events (
     event_type VARCHAR(50) NOT NULL COMMENT 'Event type',
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     data JSON COMMENT 'Event data',
-    team_name VARCHAR(100),
-    worker_name VARCHAR(100),
+    -- 来源标识
+    is_global_supervisor TINYINT(1) DEFAULT 0 COMMENT 'Is from Global Supervisor',
+    team_name VARCHAR(100) COMMENT 'Team name',
+    is_team_supervisor TINYINT(1) DEFAULT 0 COMMENT 'Is from Team Supervisor',
+    worker_name VARCHAR(100) COMMENT 'Worker name',
     FOREIGN KEY (run_id) REFERENCES execution_runs(id) ON DELETE CASCADE,
     INDEX idx_run_id (run_id),
     INDEX idx_event_type (event_type),
