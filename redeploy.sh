@@ -19,9 +19,17 @@ NC='\033[0m' # No Color
 # 配置
 COMPOSE_FILE="docker-compose.yml"
 API_CONTAINER="hierarchical-agents-api"
-HEALTH_URL="http://localhost:18080/health"
 HEALTH_TIMEOUT=60
 HEALTH_INTERVAL=2
+
+# 加载 .env 文件（如果存在）
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
+# 使用环境变量或默认值
+API_PORT="${API_EXTERNAL_PORT:-8080}"
+HEALTH_URL="http://localhost:${API_PORT}/health"
 
 # 解析参数
 NO_CACHE=""
@@ -121,7 +129,7 @@ while [ $elapsed -lt $HEALTH_TIMEOUT ]; do
         echo -e "${GREEN}========================================${NC}"
         echo -e "${GREEN}       部署成功!                        ${NC}"
         echo -e "${GREEN}========================================${NC}"
-        echo -e "API 地址: http://localhost:18080"
+        echo -e "API 地址: http://localhost:${API_PORT}"
         echo -e "健康检查: $HEALTH_URL"
         exit 0
     fi
