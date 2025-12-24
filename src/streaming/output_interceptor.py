@@ -115,12 +115,24 @@ class OutputInterceptor:
 
         return result
 
+    def _is_separator_line(self, text: str) -> bool:
+        """检查是否为纯分隔线（无意义的装饰性输出）"""
+        if not text:
+            return True
+        # 检查是否全部由分隔符字符组成
+        separator_chars = set('-=#*─━')
+        return all(c in separator_chars for c in text)
+
     def _parse_and_emit(self, text: str):
         """解析文本并发射对应事件"""
         if not text or not text.strip():
             return
 
         text_stripped = text.strip()
+
+        # 过滤纯分隔线
+        if self._is_separator_line(text_stripped):
+            return
 
         # 提取来源标签信息
         label_info = self._extract_label_info(text_stripped)
