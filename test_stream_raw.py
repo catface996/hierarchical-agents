@@ -8,11 +8,12 @@
 
 选项:
     --api=URL         指定API地址 (默认: http://localhost:8080)
-    --hierarchy=ID    指定层级团队ID (必需)
+    --hierarchy=ID    指定层级团队ID (可选，未指定时自动创建)
 
 示例:
+    python test_stream_raw.py "测试任务"
     python test_stream_raw.py --hierarchy=abc123 "测试任务"
-    python test_stream_raw.py --api=http://ec2-ip:8080 --hierarchy=abc123 "测试任务"
+    python test_stream_raw.py --api=http://ec2-ip:8080 "测试任务"
 """
 
 import sys
@@ -153,6 +154,77 @@ def list_hierarchies():
     return None
 
 
+def create_default_hierarchy():
+    """创建默认层级团队"""
+    print("\n[INFO] 自动创建默认层级团队...")
+
+    config = {
+        "name": "测试研究团队",
+        "global_prompt": """你是测试研究团队的首席科学家，负责协调理论研究和应用研究两个小组。
+你的职责是分析研究任务，将任务分配给合适的团队，并综合各团队的研究成果。""",
+        "execution_mode": "sequential",
+        "enable_context_sharing": True,
+        "teams": [
+            {
+                "name": "理论研究组",
+                "supervisor_prompt": """你是理论研究组的负责人，协调理论研究工作。
+你需要将研究任务分配给组内的专家，并整合他们的研究成果。""",
+                "workers": [
+                    {
+                        "name": "理论专家",
+                        "role": "理论研究员",
+                        "system_prompt": """你是理论专家，专注于理论基础研究。
+请用清晰、准确的语言回答问题。"""
+                    },
+                    {
+                        "name": "分析专家",
+                        "role": "分析研究员",
+                        "system_prompt": """你是分析专家，专注于深度分析研究。
+请从分析角度解释问题。"""
+                    }
+                ]
+            },
+            {
+                "name": "应用研究组",
+                "supervisor_prompt": """你是应用研究组的负责人，协调应用研究工作。
+你需要将应用研究任务分配给组内的专家，并整合他们的研究成果。""",
+                "workers": [
+                    {
+                        "name": "应用专家",
+                        "role": "应用研究员",
+                        "system_prompt": """你是应用专家，专注于应用实践研究。
+请从应用角度分析问题。"""
+                    },
+                    {
+                        "name": "实践专家",
+                        "role": "实践研究员",
+                        "system_prompt": """你是实践专家，专注于实际案例研究。
+请从实践角度分析问题。"""
+                    }
+                ]
+            }
+        ]
+    }
+
+    try:
+        response = requests.post(
+            f"{API_BASE}/api/v1/hierarchies/create",
+            json=config,
+            headers={"Content-Type": "application/json"},
+            timeout=30
+        )
+        result = response.json()
+        if result.get("success"):
+            hierarchy_id = result["data"]["id"]
+            print(f"[SUCCESS] 创建成功! ID: {hierarchy_id}")
+            return hierarchy_id
+        else:
+            print(f"[ERROR] 创建失败: {result.get('error')}")
+    except Exception as e:
+        print(f"[ERROR] 创建层级团队失败: {e}")
+    return None
+
+
 def main():
     global HIERARCHY_ID, API_BASE
 
@@ -187,7 +259,7 @@ def main():
         print(f"[ERROR] 无法连接到服务: {e}")
         return
 
-    # 如果没有指定 hierarchy_id，列出可用的
+    # 如果没有指定 hierarchy_id，列出可用的或自动创建
     if not HIERARCHY_ID:
         print("\n[WARNING] 未指定 --hierarchy=ID")
         first_id = list_hierarchies()
@@ -195,8 +267,11 @@ def main():
             HIERARCHY_ID = first_id
             print(f"\n自动使用第一个: {HIERARCHY_ID}")
         else:
-            print("\n请先创建层级团队或指定 --hierarchy=ID")
-            return
+            # 自动创建默认层级团队
+            HIERARCHY_ID = create_default_hierarchy()
+            if not HIERARCHY_ID:
+                print("\n[ERROR] 无法创建层级团队，退出")
+                return
 
     # 启动运行
     run_id = start_run(task)
