@@ -1,11 +1,11 @@
 #!/bin/bash
 #
 # 重新部署脚本
-# 用法: ./redeploy.sh [--no-cache] [--reset-db]
+# 用法: ./redeploy.sh [--no-cache] [--keep-data]
 #
 # 选项:
 #   --no-cache    构建时不使用缓存
-#   --reset-db    重置数据库（删除数据卷）
+#   --keep-data   保留数据库数据（默认会清理）
 #
 
 set -e
@@ -35,15 +35,15 @@ HEALTH_URL="http://localhost:${API_PORT}/health"
 
 # 解析参数
 NO_CACHE=""
-RESET_DB=""
+KEEP_DATA=""
 for arg in "$@"; do
     case $arg in
         --no-cache)
             NO_CACHE="--no-cache"
             shift
             ;;
-        --reset-db)
-            RESET_DB="true"
+        --keep-data)
+            KEEP_DATA="true"
             shift
             ;;
     esac
@@ -57,14 +57,14 @@ echo ""
 # 1. 停止服务并删除容器
 echo -e "${YELLOW}[1/6] 停止服务并删除容器...${NC}"
 if docker-compose -f $COMPOSE_FILE ps -q 2>/dev/null | grep -q .; then
-    if [ -n "$RESET_DB" ]; then
-        # 删除容器和数据卷
+    if [ -n "$KEEP_DATA" ]; then
+        # 只删除容器，保留数据卷
+        docker-compose -f $COMPOSE_FILE down
+        echo -e "${GREEN}      服务已停止，容器已删除（保留数据）${NC}"
+    else
+        # 删除容器和数据卷（默认）
         docker-compose -f $COMPOSE_FILE down -v
         echo -e "${GREEN}      服务已停止，容器和数据卷已删除${NC}"
-    else
-        # 只删除容器
-        docker-compose -f $COMPOSE_FILE down
-        echo -e "${GREEN}      服务已停止，容器已删除${NC}"
     fi
 else
     echo -e "${GREEN}      服务未运行${NC}"
