@@ -136,6 +136,11 @@ class OutputInterceptor:
         if self._is_separator_line(text_stripped):
             return
 
+        # DEBUG: 检查是否包含 DISPATCH
+        if 'DISPATCH' in text_stripped:
+            import sys
+            sys.__stderr__.write(f"[DEBUG] DISPATCH detected: {text_stripped[:100]}\n")
+
         # 提取来源标签信息
         label_info = self._extract_label_info(text_stripped)
 
@@ -143,6 +148,11 @@ class OutputInterceptor:
         for event_type, pattern in self.PATTERNS.items():
             match = pattern.search(text_stripped)
             if match:
+                # DEBUG: 匹配成功
+                if 'DISPATCH' in text_stripped:
+                    import sys
+                    sys.__stderr__.write(f"[DEBUG] DISPATCH matched as: {event_type}\n")
+
                 data = {
                     'raw_text': text_stripped[:500],  # 限制长度
                 }
