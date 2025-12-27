@@ -26,22 +26,34 @@ def get_repo():
 @swag_from({
     'tags': ['Models'],
     'summary': '获取模型列表',
-    'description': '分页获取 AI 模型配置列表',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
+    'description': '分页获取 AI 模型配置列表，支持按状态筛选',
+    'security': [{'Bearer Authentication': []}],
+    'requestBody': {
         'required': True,
-        'schema': {
-            'type': 'object',
-            'properties': {
-                'page': {'type': 'integer', 'default': 1},
-                'size': {'type': 'integer', 'default': 20},
-                'is_active': {'type': 'boolean'}
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'properties': {
+                        'page': {'type': 'integer', 'default': 1, 'description': '页码'},
+                        'size': {'type': 'integer', 'default': 20, 'description': '每页数量'},
+                        'is_active': {'type': 'boolean', 'description': '是否激活'}
+                    }
+                }
             }
         }
-    }],
+    },
     'responses': {
-        200: {'description': '模型列表'}
+        '200': {
+            'description': '查询成功',
+            'content': {
+                'application/json': {
+                    'schema': {'$ref': '#/components/schemas/PageResult'}
+                }
+            }
+        },
+        '401': {'description': '未认证'},
+        '500': {'description': '服务器错误'}
     }
 })
 def list_models():
@@ -77,21 +89,26 @@ def list_models():
 @swag_from({
     'tags': ['Models'],
     'summary': '获取模型详情',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
+    'description': '根据ID获取模型详细信息',
+    'security': [{'Bearer Authentication': []}],
+    'requestBody': {
         'required': True,
-        'schema': {
-            'type': 'object',
-            'required': ['id'],
-            'properties': {
-                'id': {'type': 'string'}
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'required': ['id'],
+                    'properties': {
+                        'id': {'type': 'string', 'description': '模型ID'}
+                    }
+                }
             }
         }
-    }],
+    },
     'responses': {
-        200: {'description': '模型详情'},
-        404: {'description': '模型不存在'}
+        '200': {'description': '查询成功'},
+        '401': {'description': '未认证'},
+        '404': {'description': '模型不存在'}
     }
 })
 def get_model():
@@ -120,28 +137,34 @@ def get_model():
 @swag_from({
     'tags': ['Models'],
     'summary': '创建模型',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
+    'description': '创建新的 AI 模型配置',
+    'security': [{'Bearer Authentication': []}],
+    'requestBody': {
         'required': True,
-        'schema': {
-            'type': 'object',
-            'required': ['name', 'model_id'],
-            'properties': {
-                'name': {'type': 'string'},
-                'model_id': {'type': 'string'},
-                'region': {'type': 'string', 'default': 'us-east-1'},
-                'temperature': {'type': 'number', 'default': 0.7},
-                'max_tokens': {'type': 'integer', 'default': 2048},
-                'top_p': {'type': 'number', 'default': 0.9},
-                'description': {'type': 'string'},
-                'is_active': {'type': 'boolean', 'default': True}
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'required': ['name', 'model_id'],
+                    'properties': {
+                        'name': {'type': 'string', 'description': '模型名称'},
+                        'model_id': {'type': 'string', 'description': 'AWS Bedrock 模型ID'},
+                        'region': {'type': 'string', 'default': 'us-east-1', 'description': 'AWS 区域'},
+                        'temperature': {'type': 'number', 'default': 0.7, 'description': '温度参数'},
+                        'max_tokens': {'type': 'integer', 'default': 2048, 'description': '最大Token数'},
+                        'top_p': {'type': 'number', 'default': 0.9, 'description': 'Top-P 参数'},
+                        'description': {'type': 'string', 'description': '模型描述'},
+                        'is_active': {'type': 'boolean', 'default': True, 'description': '是否激活'}
+                    }
+                }
             }
         }
-    }],
+    },
     'responses': {
-        200: {'description': '创建成功'},
-        400: {'description': '请求无效'}
+        '201': {'description': '创建成功'},
+        '400': {'description': '参数无效'},
+        '401': {'description': '未认证'},
+        '409': {'description': '模型名称已存在'}
     }
 })
 def create_model():
@@ -173,29 +196,36 @@ def create_model():
 @swag_from({
     'tags': ['Models'],
     'summary': '更新模型',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
+    'description': '更新模型配置信息',
+    'security': [{'Bearer Authentication': []}],
+    'requestBody': {
         'required': True,
-        'schema': {
-            'type': 'object',
-            'required': ['id'],
-            'properties': {
-                'id': {'type': 'string'},
-                'name': {'type': 'string'},
-                'model_id': {'type': 'string'},
-                'region': {'type': 'string'},
-                'temperature': {'type': 'number'},
-                'max_tokens': {'type': 'integer'},
-                'top_p': {'type': 'number'},
-                'description': {'type': 'string'},
-                'is_active': {'type': 'boolean'}
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'required': ['id'],
+                    'properties': {
+                        'id': {'type': 'string', 'description': '模型ID'},
+                        'name': {'type': 'string', 'description': '模型名称'},
+                        'model_id': {'type': 'string', 'description': 'AWS Bedrock 模型ID'},
+                        'region': {'type': 'string', 'description': 'AWS 区域'},
+                        'temperature': {'type': 'number', 'description': '温度参数'},
+                        'max_tokens': {'type': 'integer', 'description': '最大Token数'},
+                        'top_p': {'type': 'number', 'description': 'Top-P 参数'},
+                        'description': {'type': 'string', 'description': '模型描述'},
+                        'is_active': {'type': 'boolean', 'description': '是否激活'}
+                    }
+                }
             }
         }
-    }],
+    },
     'responses': {
-        200: {'description': '更新成功'},
-        404: {'description': '模型不存在'}
+        '200': {'description': '更新成功'},
+        '400': {'description': '参数无效'},
+        '401': {'description': '未认证'},
+        '404': {'description': '模型不存在'},
+        '409': {'description': '模型名称已存在'}
     }
 })
 def update_model():
@@ -235,21 +265,26 @@ def update_model():
 @swag_from({
     'tags': ['Models'],
     'summary': '删除模型',
-    'parameters': [{
-        'name': 'body',
-        'in': 'body',
+    'description': '删除指定的模型配置',
+    'security': [{'Bearer Authentication': []}],
+    'requestBody': {
         'required': True,
-        'schema': {
-            'type': 'object',
-            'required': ['id'],
-            'properties': {
-                'id': {'type': 'string'}
+        'content': {
+            'application/json': {
+                'schema': {
+                    'type': 'object',
+                    'required': ['id'],
+                    'properties': {
+                        'id': {'type': 'string', 'description': '模型ID'}
+                    }
+                }
             }
         }
-    }],
+    },
     'responses': {
-        200: {'description': '删除成功'},
-        404: {'description': '模型不存在'}
+        '200': {'description': '删除成功'},
+        '401': {'description': '未认证'},
+        '404': {'description': '模型不存在'}
     }
 })
 def delete_model():

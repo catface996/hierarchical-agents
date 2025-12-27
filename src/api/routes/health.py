@@ -31,8 +31,8 @@ def health_check():
     """健康检查"""
     return jsonify({
         'status': 'healthy',
-        'service': 'hierarchical-agents-api',
-        'version': '2.0.0'
+        'service': 'op-stack-executor',
+        'version': '1.0.0'
     })
 
 
@@ -50,12 +50,13 @@ def health_check():
 def api_info():
     """API 信息"""
     return jsonify({
-        'name': 'Hierarchical Agents API',
-        'version': '2.0.0',
-        'description': '层级多智能体系统 API',
+        'name': 'Op-Stack Executor API',
+        'version': '1.0.0',
+        'description': '层级多智能体系统执行器 API',
         'endpoints': {
             'health': '/health',
-            'swagger': '/swagger',
+            'swagger_ui': '/swagger-ui.html',
+            'openapi_json': '/v3/api-docs',
             'models': '/api/executor/v1/models/*',
             'hierarchies': '/api/executor/v1/hierarchies/*',
             'runs': '/api/executor/v1/runs/*'

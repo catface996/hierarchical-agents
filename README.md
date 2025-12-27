@@ -157,7 +157,8 @@ hierarchical-agents/
 | 端点 | 描述 |
 |------|------|
 | `GET /health` | 健康检查 |
-| `GET /swagger` | Swagger 文档 |
+| `GET /swagger-ui.html` | Swagger UI 文档 |
+| `GET /v3/api-docs` | OpenAPI 3.0 JSON |
 | `POST /api/executor/v1/models/list` | 列出模型 |
 | `POST /api/executor/v1/models/create` | 创建模型 |
 | `POST /api/executor/v1/hierarchies/list` | 列出层级团队 |
