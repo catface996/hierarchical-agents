@@ -792,7 +792,7 @@ FAILURE CONDITIONS - YOU WILL FAIL IF:
 
                 # 7. 创建回调处理器（Team Supervisor 上下文，使用 agent_id）
                 team_callback_handler = create_callback_handler(
-                    CallerContext.team_supervisor(config.agent_id or config.id, config.name)
+                    CallerContext.team_supervisor(config.agent_id or config.id, f"{config.name}主管", config.name)
                 )
 
                 # 8. 执行任务
