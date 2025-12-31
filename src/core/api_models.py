@@ -300,6 +300,11 @@ class ErrorResponse:
 
 def parse_worker_config(data: Dict[str, Any]) -> WorkerConfigRequest:
     """解析 Worker 配置"""
+    # 从 llm_config 或顶层读取 LLM 参数
+    llm_config = data.get('llm_config') or {}
+    temperature = llm_config.get('temperature') or data.get('temperature', 0.7)
+    max_tokens = llm_config.get('max_tokens') or data.get('max_tokens', 2048)
+
     return WorkerConfigRequest(
         name=data['name'],
         role=data['role'],
@@ -308,8 +313,8 @@ def parse_worker_config(data: Dict[str, Any]) -> WorkerConfigRequest:
         agent_id=data.get('agent_id'),
         user_message=data.get('user_message'),
         tools=data.get('tools', []),
-        temperature=data.get('temperature', 0.7),
-        max_tokens=data.get('max_tokens', 2048)
+        temperature=temperature,
+        max_tokens=max_tokens
     )
 
 
