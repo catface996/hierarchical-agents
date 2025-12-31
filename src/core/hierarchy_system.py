@@ -782,8 +782,9 @@ FAILURE CONDITIONS - YOU WILL FAIL IF:
             try:
                 # 5. 准备执行（打印开始信息）
                 worker_names = [w.name for w in config.workers]
-                print_team_start(config.name, call_id, task, worker_names)
-                print_team_thinking(config.name)
+                team_agent_id = config.agent_id or config.id
+                print_team_start(config.name, call_id, task, worker_names, agent_id=team_agent_id)
+                print_team_thinking(config.name, agent_id=team_agent_id)
 
                 # 6. 构建增强任务
                 enhanced_task = TeamSupervisorFactory._build_enhanced_task(
@@ -805,7 +806,7 @@ FAILURE CONDITIONS - YOU WILL FAIL IF:
                 response = supervisor(enhanced_task)
 
                 # 9. 完成执行（记录结果）
-                print_team_complete(config.name)
+                print_team_complete(config.name, agent_id=team_agent_id)
                 # 将 AgentResult 转为字符串
                 response_text = str(response) if response else ""
                 result = OutputFormatter.format_result_message(config.name, response_text)
@@ -990,24 +991,25 @@ Subtask: Explain practical applications in quantum computing.
         return global_supervisor, team_names
     
     @staticmethod
-    def stream_global_supervisor(agent: Agent, task: str, tracker: CallTracker, team_names: List[str]):
+    def stream_global_supervisor(agent: Agent, task: str, tracker: CallTracker, team_names: List[str], global_agent_id: str = None):
         """
         执行 Global Supervisor 并输出工作过程
-        
+
         执行全局协调者的任务，并打印执行过程和状态。
-        
+
         Args:
             agent: Global Supervisor Agent
             task: 任务描述
             tracker: 调用追踪器
             team_names: 团队名称列表
-            
+            global_agent_id: Global Supervisor 的 agent_id
+
         Returns:
             执行结果字符串
         """
         # 1. 打印开始分析
-        print_global_start(task)
-        print_global_thinking()
+        print_global_start(task, agent_id=global_agent_id)
+        print_global_thinking(agent_id=global_agent_id)
         
         # 2. 获取团队执行状态
         execution_status = tracker.execution_tracker.get_execution_status(available_teams=team_names)
@@ -1037,7 +1039,7 @@ EXECUTION REMINDER
         response = agent(enhanced_task)
 
         # 5. 打印完成分析
-        print_global_complete()
+        print_global_complete(agent_id=global_agent_id)
 
         # 将 AgentResult 转为字符串返回
         return str(response) if response else ""

@@ -328,10 +328,11 @@ class HierarchyExecutor:
             
             # 5. 执行任务
             result = GlobalSupervisorFactory.stream_global_supervisor(
-                agent, 
-                config.task, 
-                tracker, 
-                team_names
+                agent,
+                config.task,
+                tracker,
+                team_names,
+                global_agent_id=config.global_agent_id
             )
             
             # 6. 从追踪器创建执行事件

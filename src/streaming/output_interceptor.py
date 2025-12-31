@@ -58,10 +58,10 @@ class OutputInterceptor:
         'warning': (EventCategory.SYSTEM, EventAction.WARNING),
     }
 
-    # 标签解析模式
-    GLOBAL_SUPERVISOR_PATTERN = re.compile(r'\[Global Supervisor\]')
-    TEAM_SUPERVISOR_PATTERN = re.compile(r'\[Team:\s*([^|\]]+?)\s*\|\s*Supervisor\s*\]')
-    WORKER_PATTERN = re.compile(r'\[Team:\s*([^|\]]+?)\s*\|\s*Worker:\s*([^\]]+?)\s*\]')
+    # 标签解析模式（支持可选的 @agent_id 后缀）
+    GLOBAL_SUPERVISOR_PATTERN = re.compile(r'\[Global Supervisor(?:\s*\|\s*@([^\]]+))?\]')
+    TEAM_SUPERVISOR_PATTERN = re.compile(r'\[Team:\s*([^|\]]+?)\s*\|\s*Supervisor(?:\s*\|\s*@([^\]]+))?\]')
+    WORKER_PATTERN = re.compile(r'\[Team:\s*([^|\]]+?)\s*\|\s*Worker:\s*([^|\]]+?)(?:\s*\|\s*@([^\]]+))?\]')
 
     def __init__(self, event_callback: Callable[[Dict[str, Any]], None]):
         """
@@ -107,14 +107,18 @@ class OutputInterceptor:
 
         返回格式:
         {
+            'agent_id': str or None,
             'agent_type': AgentType,
             'agent_name': str,
             'team_name': str or None
         }
         """
         # 1. 检查是否是 Global Supervisor
-        if self.GLOBAL_SUPERVISOR_PATTERN.search(text):
+        match = self.GLOBAL_SUPERVISOR_PATTERN.search(text)
+        if match:
+            agent_id = match.group(1).strip() if match.group(1) else None
             return {
+                'agent_id': agent_id,
                 'agent_type': AgentType.GLOBAL_SUPERVISOR,
                 'agent_name': 'Global Supervisor',
                 'team_name': None
@@ -124,7 +128,9 @@ class OutputInterceptor:
         match = self.TEAM_SUPERVISOR_PATTERN.search(text)
         if match:
             team_name = match.group(1).strip()
+            agent_id = match.group(2).strip() if match.group(2) else None
             return {
+                'agent_id': agent_id,
                 'agent_type': AgentType.TEAM_SUPERVISOR,
                 'agent_name': f'{team_name}主管',
                 'team_name': team_name
@@ -135,7 +141,9 @@ class OutputInterceptor:
         if match:
             team_name = match.group(1).strip()
             worker_name = match.group(2).strip()
+            agent_id = match.group(3).strip() if match.group(3) else None
             return {
+                'agent_id': agent_id,
                 'agent_type': AgentType.WORKER,
                 'agent_name': worker_name,
                 'team_name': team_name
@@ -238,7 +246,7 @@ class OutputInterceptor:
         # 构建 source（如果没有来源信息，使用默认值）
         if source_info:
             source = {
-                'agent_id': None,  # output interceptor 没有 agent_id
+                'agent_id': source_info.get('agent_id'),  # 从输出标签中提取的 agent_id
                 'agent_type': source_info['agent_type'].value if isinstance(source_info['agent_type'], AgentType) else source_info['agent_type'],
                 'agent_name': source_info['agent_name'],
                 'team_name': source_info['team_name']
